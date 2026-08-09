@@ -74,6 +74,7 @@ public:
 
   bool GetTimers(std::vector<RecorderTimer>& timers);
   bool CreateTimer(const RecorderTimerRequest& request, RecorderTimer& timer);
+  bool UpdateTimer(const std::string& id, const RecorderTimerRequest& request, RecorderTimer& timer);
   bool DeleteTimer(const std::string& id);
 
   bool GetRecordings(std::vector<RecorderRecording>& recordings);
@@ -84,6 +85,7 @@ private:
                const std::string& method,
                const std::string& requestBody,
                std::string& responseBody);
+  std::string BuildTimerXml(const RecorderTimerRequest& request) const;
 
   std::shared_ptr<InstanceSettings> m_settings;
   bool m_enabled{false};

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <ctime>
 #include <memory>
 #include <string>
@@ -79,7 +80,6 @@ private:
                const std::string& method,
                const std::string& requestBody,
                std::string& responseBody);
-  bool ParseTimer(const void* nodeHandle, RecorderTimer& timer) const;
 
   std::shared_ptr<InstanceSettings> m_settings;
   bool m_enabled{false};

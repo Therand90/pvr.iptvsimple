@@ -111,6 +111,7 @@ PVR_ERROR IptvSimple::GetCapabilities(kodi::addon::PVRCapabilities& capabilities
   capabilities.SetSupportsDescrambleInfo(false);
   capabilities.SetSupportsRecordings(true);
   capabilities.SetSupportsRecordingsDelete(false);
+  capabilities.SetSupportsTimers(m_recorderClient.IsEnabled());
 
   return PVR_ERROR_NO_ERROR;
 }

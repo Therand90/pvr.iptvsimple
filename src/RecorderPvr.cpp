@@ -201,6 +201,7 @@ PVR_ERROR IptvSimple::AddTimer(const kodi::addon::PVRTimer& timer)
     return PVR_ERROR_INVALID_PARAMETERS;
 
   const time_t now = std::time(nullptr);
+  const bool isInstantRecording = timer.GetStartTime() <= 0;
   time_t startAt = timer.GetStartTime();
   time_t stopAt = timer.GetEndTime();
   if (startAt <= 0)
@@ -214,7 +215,9 @@ PVR_ERROR IptvSimple::AddTimer(const kodi::addon::PVRTimer& timer)
   // Kodi marks an instant recording with start=0. If the timer did not bring a
   // usable end time, use the programme currently active in our already loaded
   // XMLTV guide. Recording still starts now; only its stop time follows the EPG.
-  if (stopAt <= startAt || title.empty() || epgUid == 0)
+  // For instant recordings, prefer the live EPG title even if Kodi supplied a
+  // generic channel-based title, so the resulting filename names the programme.
+  if (stopAt <= startAt || title.empty() || epgUid == 0 || isInstantRecording)
   {
     std::lock_guard<std::mutex> lock(m_mutex);
     EpgEntry* liveEntry = m_epg.GetLiveEPGEntry(channel);
@@ -223,7 +226,7 @@ PVR_ERROR IptvSimple::AddTimer(const kodi::addon::PVRTimer& timer)
       hasLiveEpg = true;
       if (stopAt <= startAt)
         stopAt = liveEntry->GetEndTime();
-      if (title.empty())
+      if ((isInstantRecording || title.empty()) && !liveEntry->GetTitle().empty())
         title = liveEntry->GetTitle();
       if (epgUid == 0 && liveEntry->GetBroadcastId() > 0)
         epgUid = static_cast<unsigned int>(liveEntry->GetBroadcastId());

@@ -50,6 +50,8 @@ bool ParseTimerNode(const pugi::xml_node& node, iptvsimple::RecorderTimer& timer
   timer.id = ChildString(node, "id");
   timer.clientIndex = ChildUInt(node, "client_index");
   timer.state = ChildString(node, "state");
+  timer.timerType = ChildUInt(node, "timer_type");
+  timer.epgUid = ChildUInt(node, "epg_uid");
   timer.channelUid = node.child("channel_uid").text().as_int();
   timer.channelName = ChildString(node, "channel_name");
   timer.tvgId = ChildString(node, "tvg_id");
@@ -223,6 +225,8 @@ bool RecorderClient::CreateTimer(const RecorderTimerRequest& timerRequest, Recor
   root.append_child("stop_at").text().set(static_cast<long long>(timerRequest.stopAt));
   root.append_child("margin_before_seconds").text().set(timerRequest.marginBeforeSeconds);
   root.append_child("margin_after_seconds").text().set(timerRequest.marginAfterSeconds);
+  root.append_child("timer_type").text().set(timerRequest.timerType);
+  root.append_child("epg_uid").text().set(timerRequest.epgUid);
 
   std::ostringstream stream;
   document.save(stream, "", pugi::format_raw);

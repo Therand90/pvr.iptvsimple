@@ -3,6 +3,39 @@
 using namespace iptvsimple;
 using namespace iptvsimple::utilities;
 
+namespace
+{
+std::string Base64Encode(const std::string& input)
+{
+  static constexpr char table[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+  std::string output;
+  output.reserve(((input.size() + 2) / 3) * 4);
+
+  unsigned int buffer = 0;
+  int bits = -6;
+  for (unsigned char byte : input)
+  {
+    buffer = (buffer << 8) | byte;
+    bits += 8;
+    while (bits >= 0)
+    {
+      output.push_back(table[(buffer >> bits) & 0x3F]);
+      bits -= 6;
+    }
+  }
+
+  if (bits > -6)
+    output.push_back(table[((buffer << 8) >> (bits + 8)) & 0x3F]);
+
+  while (output.size() % 4 != 0)
+    output.push_back('=');
+
+  return output;
+}
+} // unnamed namespace
+
 namespace iptvsimple
 {
 namespace utilities
@@ -55,8 +88,18 @@ int CUrl::Open()
 
 void CUrl::AddHeaders(const std::map<std::string, std::string>& headers)
 {
-  for (const auto& header : headers)  
-    m_file.CURLAddOption(ADDON_CURL_OPTION_HEADER, header.first.data(), header.second.data());  
+  for (const auto& header : headers)
+    m_file.CURLAddOption(ADDON_CURL_OPTION_HEADER, header.first.data(), header.second.data());
+}
+
+void CUrl::SetRequestMethod(const std::string& method)
+{
+  m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "customrequest", method);
+}
+
+void CUrl::SetPostData(const std::string& data)
+{
+  m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "postdata", Base64Encode(data));
 }
 
 ReadStatus CUrl::Read(std::string& data, size_t chunkBufferSize)

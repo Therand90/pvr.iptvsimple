@@ -30,9 +30,11 @@ Le fork ajoute le backend d'enregistrement Therand :
 - enregistrement depuis l'EPG ;
 - timer manuel sans EPG ;
 - titre du programme EPG utilisé pour nommer l'enregistrement lorsqu'il est disponible ;
+- absence d'EPG sur un enregistrement instantané = saisie obligatoire de la durée ;
 - catalogue des enregistrements terminés dans `TV > Enregistrements` ;
 - lecture locale du fichier `.ts` sur LibreELEC ;
 - suppression native depuis Kodi ;
+- rafraîchissement automatique des timers/enregistrements lorsque le scheduler VPS change d'état ;
 - communication avec `therand-tv-recorder` sur le VPS via WireGuard.
 
 La vidéo ne transite pas par le VPS. Le backend VPS orchestre un agent LibreELEC qui exécute FFmpeg en copie directe et écrit directement sur le disque local.
@@ -57,7 +59,7 @@ Le backend ne renvoie que des chemins relatifs. Le client refuse les chemins con
 
 La distribution Therand conserve l'identifiant `pvr.iptvsimple` afin qu'une installation par-dessus l'addon officiel garde les réglages existants.
 
-Le workflow de build produit le paquet de test sous une version de distribution `21.99.0+therand.2` et un nom visible `IPTV Simple Client (Therand DVR)`. Cette version reste dans la famille Kodi 21/Omega tout en étant supérieure aux versions Omega upstream actuelles, ce qui évite qu'une mise à jour 21.x officielle remplace silencieusement la variante Therand.
+Le premier release candidate complet est empaqueté sous la version de distribution `21.99.0+therand.3` avec le nom visible `IPTV Simple Client (Therand DVR)`. Cette version reste dans la famille Kodi 21/Omega tout en étant supérieure aux versions Omega upstream actuelles, ce qui évite qu'une mise à jour 21.x officielle remplace silencieusement la variante Therand.
 
 Les nouveautés upstream sont intégrées via le workflow de synchronisation ci-dessous, puis testées dans notre fork avant de produire une nouvelle révision Therand.
 

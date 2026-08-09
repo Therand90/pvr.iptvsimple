@@ -73,6 +73,8 @@ bool ParseRecordingNode(const pugi::xml_node& node, iptvsimple::RecorderRecordin
     return false;
 
   recording.id = ChildString(node, "id");
+  recording.channelUid = node.child("channel_uid").text().as_int();
+  recording.epgUid = ChildUInt(node, "epg_uid");
   recording.title = ChildString(node, "title");
   recording.channelName = ChildString(node, "channel_name");
   recording.tvgId = ChildString(node, "tvg_id");
@@ -98,6 +100,7 @@ bool RecorderClient::ReloadConfig()
   m_enabled = false;
   m_backendUrl.clear();
   m_token.clear();
+  m_recordingsRoot.clear();
   m_defaultMarginBeforeSeconds = 120;
   m_defaultMarginAfterSeconds = 300;
 
@@ -131,6 +134,7 @@ bool RecorderClient::ReloadConfig()
   m_enabled = root.child("enabled").text().as_bool(false);
   m_backendUrl = ChildString(root, "backend_url");
   m_token = ChildString(root, "token");
+  m_recordingsRoot = ChildString(root, "recordings_root");
   m_defaultMarginBeforeSeconds =
       root.child("margin_before_seconds").text().as_uint(m_defaultMarginBeforeSeconds);
   m_defaultMarginAfterSeconds =
@@ -138,6 +142,9 @@ bool RecorderClient::ReloadConfig()
 
   while (!m_backendUrl.empty() && m_backendUrl.back() == '/')
     m_backendUrl.pop_back();
+  while (m_recordingsRoot.size() > 1 &&
+         (m_recordingsRoot.back() == '/' || m_recordingsRoot.back() == '\\'))
+    m_recordingsRoot.pop_back();
 
   if (!IsEnabled())
   {
@@ -147,6 +154,10 @@ bool RecorderClient::ReloadConfig()
 
   Logger::Log(LEVEL_INFO, "%s - Therand recorder backend enabled at %s", __FUNCTION__,
               m_backendUrl.c_str());
+  if (m_recordingsRoot.empty())
+    Logger::Log(LEVEL_WARNING,
+                "%s - recordings_root is empty; completed recordings cannot be played locally",
+                __FUNCTION__);
   return true;
 }
 
@@ -291,6 +302,26 @@ bool RecorderClient::DeleteRecording(const std::string& id)
 {
   std::string response;
   return Request("/api/v1/pvr/recordings/" + id, "DELETE", "", response);
+}
+
+std::string RecorderClient::GetLocalRecordingPath(const std::string& relativePath) const
+{
+  if (m_recordingsRoot.empty() || relativePath.empty())
+    return {};
+
+  std::string relative = relativePath;
+  std::replace(relative.begin(), relative.end(), '\\', '/');
+
+  if (relative.front() == '/' || relative == ".." || relative.rfind("../", 0) == 0 ||
+      relative.find("/../") != std::string::npos ||
+      (relative.size() >= 3 && relative.compare(relative.size() - 3, 3, "/..") == 0))
+  {
+    Logger::Log(LEVEL_ERROR, "%s - Refusing unsafe recording path '%s'", __FUNCTION__,
+                relativePath.c_str());
+    return {};
+  }
+
+  return m_recordingsRoot + "/" + relative;
 }
 
 } // namespace iptvsimple

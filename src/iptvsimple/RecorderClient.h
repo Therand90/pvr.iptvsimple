@@ -20,6 +20,8 @@ struct RecorderTimer
   std::string id;
   unsigned int clientIndex{0};
   std::string state;
+  unsigned int timerType{1};
+  unsigned int epgUid{0};
   int channelUid{0};
   std::string channelName;
   std::string tvgId;
@@ -56,6 +58,8 @@ struct RecorderTimerRequest
   time_t stopAt{0};
   unsigned int marginBeforeSeconds{0};
   unsigned int marginAfterSeconds{0};
+  unsigned int timerType{1};
+  unsigned int epgUid{0};
 };
 
 class RecorderClient

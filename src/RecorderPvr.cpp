@@ -212,11 +212,9 @@ PVR_ERROR IptvSimple::AddTimer(const kodi::addon::PVRTimer& timer)
   unsigned int timerType = timer.GetTimerType();
   bool hasLiveEpg = false;
 
-  // Kodi marks an instant recording with start=0. If the timer did not bring a
-  // usable end time, use the programme currently active in our already loaded
-  // XMLTV guide. Recording still starts now; only its stop time follows the EPG.
-  // For instant recordings, prefer the live EPG title even if Kodi supplied a
-  // generic channel-based title, so the resulting filename names the programme.
+  // Kodi marks an instant recording with start=0. Look up the programme that
+  // is really live in our XMLTV guide. For instant recordings, the live EPG
+  // title wins over a generic channel-based title supplied by Kodi.
   if (stopAt <= startAt || title.empty() || epgUid == 0 || isInstantRecording)
   {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -224,7 +222,7 @@ PVR_ERROR IptvSimple::AddTimer(const kodi::addon::PVRTimer& timer)
     if (liveEntry && liveEntry->GetEndTime() > now)
     {
       hasLiveEpg = true;
-      if (stopAt <= startAt)
+      if (isInstantRecording || stopAt <= startAt)
         stopAt = liveEntry->GetEndTime();
       if ((isInstantRecording || title.empty()) && !liveEntry->GetTitle().empty())
         title = liveEntry->GetTitle();
@@ -233,9 +231,11 @@ PVR_ERROR IptvSimple::AddTimer(const kodi::addon::PVRTimer& timer)
     }
   }
 
-  // No EPG and no explicit end time: ask the user rather than silently picking
-  // an arbitrary duration. This is the fallback for the red record button.
-  if (stopAt <= startAt)
+  // For the red Record button, absence of a usable live EPG always means the
+  // user chooses the duration. Ignore any arbitrary end time Kodi may have
+  // supplied for that instant recording. Future/manual timers keep their
+  // explicitly configured start/end times.
+  if ((isInstantRecording && !hasLiveEpg) || stopAt <= startAt)
   {
     if (!AskManualDuration(startAt, stopAt))
       return PVR_ERROR_REJECTED;

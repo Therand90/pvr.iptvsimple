@@ -38,6 +38,8 @@ struct RecorderTimer
 struct RecorderRecording
 {
   std::string id;
+  int channelUid{0};
+  unsigned int epgUid{0};
   std::string title;
   std::string channelName;
   std::string tvgId;
@@ -79,6 +81,7 @@ public:
 
   bool GetRecordings(std::vector<RecorderRecording>& recordings);
   bool DeleteRecording(const std::string& id);
+  std::string GetLocalRecordingPath(const std::string& relativePath) const;
 
 private:
   bool Request(const std::string& path,
@@ -91,6 +94,7 @@ private:
   bool m_enabled{false};
   std::string m_backendUrl;
   std::string m_token;
+  std::string m_recordingsRoot;
   unsigned int m_defaultMarginBeforeSeconds{120};
   unsigned int m_defaultMarginAfterSeconds{300};
 };

@@ -22,6 +22,7 @@
 #include <atomic>
 #include <map>
 #include <mutex>
+#include <string>
 #include <thread>
 
 #include <kodi/addon-instance/PVR.h>
@@ -101,13 +102,18 @@ protected:
 
 private:
   static const int PROCESS_LOOP_WAIT_SECS = 2;
+  static const int RECORDER_POLL_INTERVAL_SECS = 6;
 
   bool RefreshRecorderTimerIds();
   std::string FindRecorderTimerId(unsigned int clientIndex);
+  void PollRecorderState();
 
   std::shared_ptr<iptvsimple::InstanceSettings> m_settings;
   iptvsimple::RecorderClient m_recorderClient{m_settings};
   std::map<unsigned int, std::string> m_recorderTimerIds;
+  std::string m_recorderTimersFingerprint;
+  std::string m_recorderRecordingsFingerprint;
+  bool m_recorderStateInitialised{false};
 
   iptvsimple::data::Channel m_currentChannel{m_settings};
   iptvsimple::Providers m_providers{m_settings};

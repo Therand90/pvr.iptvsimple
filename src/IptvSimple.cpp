@@ -37,6 +37,40 @@ std::string BackendRecordingId(const std::string& recordingId)
              ? recordingId.substr(std::char_traits<char>::length(THERAND_RECORDING_PREFIX))
              : std::string{};
 }
+
+std::string TimerFingerprint(const std::vector<RecorderTimer>& timers)
+{
+  std::string fingerprint;
+  for (const auto& timer : timers)
+  {
+    fingerprint.append(timer.id)
+        .append("|")
+        .append(timer.state)
+        .append("|")
+        .append(std::to_string(timer.startAt))
+        .append("|")
+        .append(std::to_string(timer.stopAt))
+        .append("|")
+        .append(timer.title)
+        .append(";");
+  }
+  return fingerprint;
+}
+
+std::string RecordingFingerprint(const std::vector<RecorderRecording>& recordings)
+{
+  std::string fingerprint;
+  for (const auto& recording : recordings)
+  {
+    fingerprint.append(recording.id)
+        .append("|")
+        .append(std::to_string(recording.outputSizeBytes))
+        .append("|")
+        .append(recording.title)
+        .append(";");
+  }
+  return fingerprint;
+}
 } // unnamed namespace
 
 IptvSimple::IptvSimple(const kodi::addon::IInstanceInfo& instance) : iptvsimple::IConnectionListener(instance), m_settings(new InstanceSettings(*this, instance))
@@ -153,6 +187,7 @@ PVR_ERROR IptvSimple::GetConnectionString(std::string& connection)
 void IptvSimple::Process()
 {
   unsigned int refreshTimer = 0;
+  unsigned int recorderPollTimer = 0;
   time_t lastRefreshTimeSeconds = std::time(nullptr);
   int lastRefreshHour = m_settings->GetM3URefreshHour(); //ignore if we start during same hour
 
@@ -162,7 +197,10 @@ void IptvSimple::Process()
 
     time_t currentRefreshTimeSeconds = std::time(nullptr);
     std::tm timeInfo = SafeLocaltime(currentRefreshTimeSeconds);
-    refreshTimer += static_cast<unsigned int>(currentRefreshTimeSeconds - lastRefreshTimeSeconds);
+    const unsigned int elapsed =
+        static_cast<unsigned int>(currentRefreshTimeSeconds - lastRefreshTimeSeconds);
+    refreshTimer += elapsed;
+    recorderPollTimer += elapsed;
     lastRefreshTimeSeconds = currentRefreshTimeSeconds;
 
     if (m_settings->GetM3URefreshMode() == RefreshMode::REPEATED_REFRESH &&
@@ -177,6 +215,12 @@ void IptvSimple::Process()
     {
       Logger::Log(LEVEL_DEBUG, "%s - Refreshing Channels, Grous and EPG at hour of day: %d", __func__, m_settings->GetM3URefreshHour());
       m_reloadChannelsGroupsAndEPG = true;
+    }
+
+    if (m_running && recorderPollTimer >= RECORDER_POLL_INTERVAL_SECS)
+    {
+      PollRecorderState();
+      recorderPollTimer = 0;
     }
 
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -194,6 +238,53 @@ void IptvSimple::Process()
       refreshTimer = 0;
     }
     lastRefreshHour = timeInfo.tm_hour;
+  }
+}
+
+void IptvSimple::PollRecorderState()
+{
+  if (!m_recorderClient.IsEnabled())
+    return;
+
+  std::vector<RecorderTimer> timers;
+  std::vector<RecorderRecording> recordings;
+  const bool haveTimers = m_recorderClient.GetTimers(timers);
+  const bool haveRecordings = m_recorderClient.GetRecordings(recordings);
+
+  if (!haveTimers && !haveRecordings)
+    return;
+
+  const std::string timerFingerprint = haveTimers ? TimerFingerprint(timers) : std::string{};
+  const std::string recordingFingerprint =
+      haveRecordings ? RecordingFingerprint(recordings) : std::string{};
+
+  if (!m_recorderStateInitialised)
+  {
+    if (haveTimers)
+      m_recorderTimersFingerprint = timerFingerprint;
+    if (haveRecordings)
+      m_recorderRecordingsFingerprint = recordingFingerprint;
+    m_recorderStateInitialised = true;
+
+    // Kodi may have started before the VPS backend became reachable. Force one
+    // import as soon as the first successful poll arrives.
+    if (haveTimers)
+      TriggerTimerUpdate();
+    if (haveRecordings)
+      TriggerRecordingUpdate();
+    return;
+  }
+
+  if (haveTimers && timerFingerprint != m_recorderTimersFingerprint)
+  {
+    m_recorderTimersFingerprint = timerFingerprint;
+    TriggerTimerUpdate();
+  }
+
+  if (haveRecordings && recordingFingerprint != m_recorderRecordingsFingerprint)
+  {
+    m_recorderRecordingsFingerprint = recordingFingerprint;
+    TriggerRecordingUpdate();
   }
 }
 

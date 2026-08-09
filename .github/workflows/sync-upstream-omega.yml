@@ -1,0 +1,59 @@
+name: Sync upstream Omega
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Therand Omega
+        uses: actions/checkout@v5
+        with:
+          ref: therand-omega
+          fetch-depth: 0
+
+      - name: Fetch official Omega
+        run: |
+          git remote add upstream https://github.com/kodi-pvr/pvr.iptvsimple.git
+          git fetch upstream Omega
+
+      - name: Check for upstream changes
+        id: check
+        shell: bash
+        run: |
+          if git merge-base --is-ancestor upstream/Omega HEAD; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare synchronization branch
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B sync/upstream-omega therand-omega
+          git merge --no-edit upstream/Omega
+          git push --force origin sync/upstream-omega
+
+      - name: Open synchronization PR
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          existing="$(gh pr list --head sync/upstream-omega --base therand-omega --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$existing" ]; then
+            gh pr create \
+              --head sync/upstream-omega \
+              --base therand-omega \
+              --title "chore: synchroniser IPTV Simple Omega upstream" \
+              --body "Synchronisation automatique de la branche officielle \`kodi-pvr/pvr.iptvsimple:Omega\`. Le merge reste manuel après validation du build Therand."
+          fi

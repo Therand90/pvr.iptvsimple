@@ -16,9 +16,11 @@
 #include "iptvsimple/IConnectionListener.h"
 #include "iptvsimple/Media.h"
 #include "iptvsimple/PlaylistLoader.h"
+#include "iptvsimple/RecorderClient.h"
 #include "iptvsimple/data/Channel.h"
 
 #include <atomic>
+#include <map>
 #include <mutex>
 #include <thread>
 
@@ -71,6 +73,13 @@ public:
 
   PVR_ERROR GetSignalStatus(int channelUid, kodi::addon::PVRSignalStatus& signalStatus) override;
 
+  PVR_ERROR GetTimerTypes(std::vector<kodi::addon::PVRTimerType>& types) override;
+  PVR_ERROR GetTimersAmount(int& amount) override;
+  PVR_ERROR GetTimers(kodi::addon::PVRTimersResultSet& results) override;
+  PVR_ERROR AddTimer(const kodi::addon::PVRTimer& timer) override;
+  PVR_ERROR DeleteTimer(const kodi::addon::PVRTimer& timer, bool forceDelete) override;
+  PVR_ERROR UpdateTimer(const kodi::addon::PVRTimer& timer) override;
+
   PVR_ERROR GetRecordingsAmount(bool deleted, int& amount) override;
   PVR_ERROR GetRecordings(bool deleted, kodi::addon::PVRRecordingsResultSet& results) override;
   PVR_ERROR GetRecordingStreamProperties(const kodi::addon::PVRRecording& recording, std::vector<kodi::addon::PVRStreamProperty>& properties) override;
@@ -92,7 +101,12 @@ protected:
 private:
   static const int PROCESS_LOOP_WAIT_SECS = 2;
 
+  bool RefreshRecorderTimerIds();
+  std::string FindRecorderTimerId(unsigned int clientIndex);
+
   std::shared_ptr<iptvsimple::InstanceSettings> m_settings;
+  iptvsimple::RecorderClient m_recorderClient{m_settings};
+  std::map<unsigned int, std::string> m_recorderTimerIds;
 
   iptvsimple::data::Channel m_currentChannel{m_settings};
   iptvsimple::Providers m_providers{m_settings};

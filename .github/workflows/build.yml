@@ -27,6 +27,34 @@ jobs:
       uses: actions/checkout@v5
       with:
         path: ${{ env.app_id }}
+    - name: Apply Therand Omega package metadata
+      run: |
+        python - <<'PY'
+        from pathlib import Path
+        import re
+
+        addon = Path("pvr.iptvsimple/pvr.iptvsimple/addon.xml.in")
+        text = addon.read_text(encoding="utf-8")
+        text, count = re.subn(
+            r'(?m)^(\s*version=")[^"]+(".*)$',
+            r'\g<1>21.99.0+therand.1\2',
+            text,
+            count=1,
+        )
+        if count != 1:
+            raise SystemExit("Could not patch addon version")
+        text = text.replace(
+            'name="IPTV Simple Client"',
+            'name="IPTV Simple Client (Therand DVR)"',
+            1,
+        )
+        text = text.replace(
+            'provider-name="nightik and Ross Nicholson"',
+            'provider-name="nightik, Ross Nicholson and Therand90"',
+            1,
+        )
+        addon.write_text(text, encoding="utf-8")
+        PY
     - name: Prepare
       run: |
         mkdir -p ${{ github.workspace }}/xbmc/cmake/addons/addons/${app_id}
@@ -51,3 +79,10 @@ jobs:
         CXX: ${{ matrix.CXX }}
       run: |
         make -C ${app_id}/build -j$(getconf _NPROCESSORS_ONLN)
+    - name: Upload Therand Omega ZIP
+      if: matrix.CC == 'gcc'
+      uses: actions/upload-artifact@v4
+      with:
+        name: pvr.iptvsimple-omega-therand
+        path: ${{ env.app_id }}/build/build/zips/**/*.zip
+        if-no-files-found: error

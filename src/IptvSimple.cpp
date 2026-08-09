@@ -22,6 +22,23 @@ using namespace iptvsimple::data;
 using namespace iptvsimple::utilities;
 using namespace kodi::tools;
 
+namespace
+{
+constexpr const char* THERAND_RECORDING_PREFIX = "therand:";
+
+bool IsTherandRecordingId(const std::string& recordingId)
+{
+  return recordingId.rfind(THERAND_RECORDING_PREFIX, 0) == 0;
+}
+
+std::string BackendRecordingId(const std::string& recordingId)
+{
+  return IsTherandRecordingId(recordingId)
+             ? recordingId.substr(std::char_traits<char>::length(THERAND_RECORDING_PREFIX))
+             : std::string{};
+}
+} // unnamed namespace
+
 IptvSimple::IptvSimple(const kodi::addon::IInstanceInfo& instance) : iptvsimple::IConnectionListener(instance), m_settings(new InstanceSettings(*this, instance))
 {
   m_channels.Clear();
@@ -110,7 +127,7 @@ PVR_ERROR IptvSimple::GetCapabilities(kodi::addon::PVRCapabilities& capabilities
   capabilities.SetSupportsRecordingsLifetimeChange(false);
   capabilities.SetSupportsDescrambleInfo(false);
   capabilities.SetSupportsRecordings(true);
-  capabilities.SetSupportsRecordingsDelete(false);
+  capabilities.SetSupportsRecordingsDelete(m_recorderClient.IsEnabled());
   capabilities.SetSupportsTimers(m_recorderClient.IsEnabled());
 
   return PVR_ERROR_NO_ERROR;
@@ -387,41 +404,123 @@ PVR_ERROR IptvSimple::SetEPGMaxFutureDays(int epgMaxFutureDays)
 }
 
 /***************************************************************************
- * Media
+ * Media / recordings
  **************************************************************************/
 
 PVR_ERROR IptvSimple::GetRecordingsAmount(bool deleted, int& amount)
 {
-  std::lock_guard<std::mutex> lock(m_mutex);
   if (deleted)
+  {
     amount = 0;
-  else
+    return PVR_ERROR_NO_ERROR;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
     amount = m_media.GetNumMedia();
+  }
+
+  if (m_recorderClient.IsEnabled())
+  {
+    std::vector<RecorderRecording> recordings;
+    if (m_recorderClient.GetRecordings(recordings))
+      amount += static_cast<int>(recordings.size());
+  }
 
   return PVR_ERROR_NO_ERROR;
 }
 
 PVR_ERROR IptvSimple::GetRecordings(bool deleted, kodi::addon::PVRRecordingsResultSet& results)
 {
-  if (!deleted)
+  if (deleted)
+    return PVR_ERROR_NO_ERROR;
+
+  std::vector<kodi::addon::PVRRecording> media;
   {
-    std::vector<kodi::addon::PVRRecording> media;
-    {
-      std::lock_guard<std::mutex> lock(m_mutex);
-      m_media.GetMedia(media);
-    }
-
-    for (const auto& mediaTag : media)
-      results.Add(mediaTag);
-
-    Logger::Log(LEVEL_DEBUG, "%s - media available '%d'", __func__, media.size());
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_media.GetMedia(media);
   }
 
+  for (const auto& mediaTag : media)
+    results.Add(mediaTag);
+
+  Logger::Log(LEVEL_DEBUG, "%s - playlist media available '%d'", __func__, media.size());
+
+  if (!m_recorderClient.IsEnabled())
+    return PVR_ERROR_NO_ERROR;
+
+  std::vector<RecorderRecording> recordings;
+  if (!m_recorderClient.GetRecordings(recordings))
+    return PVR_ERROR_SERVER_ERROR;
+
+  for (const auto& source : recordings)
+  {
+    kodi::addon::PVRRecording recording;
+    recording.SetRecordingId(std::string(THERAND_RECORDING_PREFIX) + source.id);
+    recording.SetTitle(source.title.empty() ? source.channelName : source.title);
+    recording.SetChannelName(source.channelName);
+    recording.SetChannelType(PVR_RECORDING_CHANNEL_TYPE_TV);
+    recording.SetRecordingTime(source.startAt);
+    recording.SetDuration(source.stopAt > source.startAt
+                              ? static_cast<int>(source.stopAt - source.startAt)
+                              : 0);
+    if (source.channelUid != 0)
+      recording.SetChannelUid(source.channelUid);
+    if (source.epgUid != 0)
+      recording.SetEPGEventId(source.epgUid);
+    if (source.outputSizeBytes > 0)
+      recording.SetSizeInBytes(source.outputSizeBytes);
+
+    results.Add(recording);
+  }
+
+  Logger::Log(LEVEL_DEBUG, "%s - Therand recordings available '%d'", __func__,
+              recordings.size());
+  return PVR_ERROR_NO_ERROR;
+}
+
+PVR_ERROR IptvSimple::DeleteRecording(const kodi::addon::PVRRecording& recording)
+{
+  if (!m_recorderClient.IsEnabled())
+    return PVR_ERROR_NOT_IMPLEMENTED;
+
+  const std::string backendId = BackendRecordingId(recording.GetRecordingId());
+  if (backendId.empty())
+    return PVR_ERROR_NOT_IMPLEMENTED;
+
+  if (!m_recorderClient.DeleteRecording(backendId))
+    return PVR_ERROR_SERVER_ERROR;
+
+  TriggerRecordingUpdate();
   return PVR_ERROR_NO_ERROR;
 }
 
 PVR_ERROR IptvSimple::GetRecordingStreamProperties(const kodi::addon::PVRRecording& recording, std::vector<kodi::addon::PVRStreamProperty>& properties)
 {
+  const std::string backendId = BackendRecordingId(recording.GetRecordingId());
+  if (!backendId.empty())
+  {
+    std::vector<RecorderRecording> recordings;
+    if (!m_recorderClient.GetRecordings(recordings))
+      return PVR_ERROR_SERVER_ERROR;
+
+    for (const auto& source : recordings)
+    {
+      if (source.id != backendId)
+        continue;
+
+      const std::string localPath =
+          m_recorderClient.GetLocalRecordingPath(source.relativeOutputPath);
+      if (localPath.empty())
+        return PVR_ERROR_SERVER_ERROR;
+
+      properties.emplace_back(PVR_STREAM_PROPERTY_STREAMURL, localPath);
+      return PVR_ERROR_NO_ERROR;
+    }
+
+    return PVR_ERROR_INVALID_PARAMETERS;
+  }
+
   auto mediaEntry = m_media.GetMediaEntry(recording);
   std::string url = m_media.GetMediaEntryURL(recording);
 

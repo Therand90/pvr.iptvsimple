@@ -48,6 +48,10 @@ public:
   int Open();
   // Adds multiple headers.
   void AddHeaders(const std::map<std::string, std::string>& headers);
+  // Selects a custom HTTP verb, e.g. DELETE.
+  void SetRequestMethod(const std::string& method);
+  // Adds a request body. Kodi's VFS expects postdata to be base64 encoded.
+  void SetPostData(const std::string& data);
   // Reads data.
   ReadStatus Read(std::string& data, size_t chunkBufferSize = BUFFER_SIZE_32);
 private:

@@ -13,24 +13,31 @@ La branche `Omega` du fork contient IPTV Simple `21.11.0` et dépend des famille
 
 ## Objectif fonctionnel
 
-Le fork deviendra `pvr.therandtv` et conservera toutes les fonctions IPTV Simple utiles :
+Le fork conserve volontairement l'identifiant `pvr.iptvsimple` et remplace directement IPTV Simple Client sur le Kodi cible. Ce choix permet de réutiliser les données d'instance et les réglages IPTV Simple existants au lieu de créer un second client PVR à reconfigurer.
+
+Toutes les fonctions IPTV Simple utiles restent présentes :
 
 - M3U et XMLTV ;
 - groupes, logos et fournisseurs ;
 - lecture HTTP/HLS/DASH ;
 - catch-up/timeshift existant.
 
-Il ajoutera un backend d'enregistrement distant :
+Le fork ajoute un backend d'enregistrement distant :
 
 - timers Kodi natifs ;
 - enregistrement immédiat ;
 - enregistrement depuis l'EPG ;
 - timer manuel sans EPG ;
+- titre du programme EPG utilisé pour nommer l'enregistrement lorsqu'il est disponible ;
 - catalogue des enregistrements ;
 - suppression des enregistrements ;
 - communication avec `therand-tv-recorder` sur le VPS via WireGuard.
 
 La vidéo ne transitera pas par le VPS. Le backend VPS orchestre un agent LibreELEC qui exécute FFmpeg et écrit directement sur le disque local.
+
+## Mise à jour de l'addon sur Kodi
+
+La distribution Therand doit conserver l'identifiant `pvr.iptvsimple` afin qu'une installation par-dessus l'addon officiel garde les réglages existants. La version de distribution sera distinguée de l'upstream au moment de produire les ZIP afin d'éviter qu'une mise à jour officielle remplace silencieusement notre variante. Les nouveautés upstream sont intégrées via le workflow de synchronisation ci-dessous, pas directement sur le Kodi de production.
 
 ## Synchronisation upstream
 

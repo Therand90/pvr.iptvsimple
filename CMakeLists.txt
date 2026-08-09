@@ -23,6 +23,7 @@ message(STATUS "LZMA_LIBRARIES: ${LZMA_LIBRARIES}")
 
 set(IPTV_SOURCES src/addon.cpp
                  src/IptvSimple.cpp
+                 src/RecorderPvr.cpp
                  src/iptvsimple/AddonSettings.cpp
                  src/iptvsimple/CatchupController.cpp
                  src/iptvsimple/Channels.cpp

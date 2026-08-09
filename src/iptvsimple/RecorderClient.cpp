@@ -192,6 +192,27 @@ bool RecorderClient::Request(const std::string& path,
   return true;
 }
 
+std::string RecorderClient::BuildTimerXml(const RecorderTimerRequest& timerRequest) const
+{
+  pugi::xml_document document;
+  pugi::xml_node root = document.append_child("timer");
+  root.append_child("channel_uid").text().set(timerRequest.channelUid);
+  root.append_child("channel_name").text().set(timerRequest.channelName.c_str());
+  root.append_child("tvg_id").text().set(timerRequest.tvgId.c_str());
+  root.append_child("stream_url").text().set(timerRequest.streamUrl.c_str());
+  root.append_child("title").text().set(timerRequest.title.c_str());
+  root.append_child("start_at").text().set(static_cast<long long>(timerRequest.startAt));
+  root.append_child("stop_at").text().set(static_cast<long long>(timerRequest.stopAt));
+  root.append_child("margin_before_seconds").text().set(timerRequest.marginBeforeSeconds);
+  root.append_child("margin_after_seconds").text().set(timerRequest.marginAfterSeconds);
+  root.append_child("timer_type").text().set(timerRequest.timerType);
+  root.append_child("epg_uid").text().set(timerRequest.epgUid);
+
+  std::ostringstream stream;
+  document.save(stream, "", pugi::format_raw);
+  return stream.str();
+}
+
 bool RecorderClient::GetTimers(std::vector<RecorderTimer>& timers)
 {
   timers.clear();
@@ -214,25 +235,23 @@ bool RecorderClient::GetTimers(std::vector<RecorderTimer>& timers)
 
 bool RecorderClient::CreateTimer(const RecorderTimerRequest& timerRequest, RecorderTimer& timer)
 {
-  pugi::xml_document document;
-  pugi::xml_node root = document.append_child("timer");
-  root.append_child("channel_uid").text().set(timerRequest.channelUid);
-  root.append_child("channel_name").text().set(timerRequest.channelName.c_str());
-  root.append_child("tvg_id").text().set(timerRequest.tvgId.c_str());
-  root.append_child("stream_url").text().set(timerRequest.streamUrl.c_str());
-  root.append_child("title").text().set(timerRequest.title.c_str());
-  root.append_child("start_at").text().set(static_cast<long long>(timerRequest.startAt));
-  root.append_child("stop_at").text().set(static_cast<long long>(timerRequest.stopAt));
-  root.append_child("margin_before_seconds").text().set(timerRequest.marginBeforeSeconds);
-  root.append_child("margin_after_seconds").text().set(timerRequest.marginAfterSeconds);
-  root.append_child("timer_type").text().set(timerRequest.timerType);
-  root.append_child("epg_uid").text().set(timerRequest.epgUid);
-
-  std::ostringstream stream;
-  document.save(stream, "", pugi::format_raw);
-
   std::string response;
-  if (!Request("/api/v1/pvr/timers", "POST", stream.str(), response))
+  if (!Request("/api/v1/pvr/timers", "POST", BuildTimerXml(timerRequest), response))
+    return false;
+
+  pugi::xml_document responseDocument;
+  if (!responseDocument.load_string(response.c_str()))
+    return false;
+
+  return ParseTimerNode(responseDocument.child("timer"), timer);
+}
+
+bool RecorderClient::UpdateTimer(const std::string& id,
+                                 const RecorderTimerRequest& timerRequest,
+                                 RecorderTimer& timer)
+{
+  std::string response;
+  if (!Request("/api/v1/pvr/timers/" + id, "POST", BuildTimerXml(timerRequest), response))
     return false;
 
   pugi::xml_document responseDocument;

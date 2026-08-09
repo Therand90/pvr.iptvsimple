@@ -46,7 +46,7 @@ Voir `docs/therand-recorder.xml.example`.
 Champs :
 
 - `enabled` : active les capacités timers/recordings Therand ;
-- `backend_url` : URL privée WireGuard du backend VPS ;
+- `backend_url` : URL privée WireGuard du backend VPS, actuellement `http://10.13.13.1:8787` ;
 - `token` : jeton Bearer backend, jamais versionné ;
 - `recordings_root` : chemin hôte LibreELEC du dossier contenant les `.ts` ;
 - `margin_before_seconds` / `margin_after_seconds` : marges par défaut.
@@ -57,7 +57,7 @@ Le backend ne renvoie que des chemins relatifs. Le client refuse les chemins con
 
 La distribution Therand conserve l'identifiant `pvr.iptvsimple` afin qu'une installation par-dessus l'addon officiel garde les réglages existants.
 
-Le workflow de build produit le paquet de test sous une version de distribution `21.99.0+therand.1` et un nom visible `IPTV Simple Client (Therand DVR)`. Cette version reste dans la famille Kodi 21/Omega tout en étant supérieure aux versions Omega upstream actuelles, ce qui évite qu'une mise à jour 21.x officielle remplace silencieusement la variante Therand.
+Le workflow de build produit le paquet de test sous une version de distribution `21.99.0+therand.2` et un nom visible `IPTV Simple Client (Therand DVR)`. Cette version reste dans la famille Kodi 21/Omega tout en étant supérieure aux versions Omega upstream actuelles, ce qui évite qu'une mise à jour 21.x officielle remplace silencieusement la variante Therand.
 
 Les nouveautés upstream sont intégrées via le workflow de synchronisation ci-dessous, puis testées dans notre fork avant de produire une nouvelle révision Therand.
 

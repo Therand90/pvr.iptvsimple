@@ -37,7 +37,7 @@ jobs:
         text = addon.read_text(encoding="utf-8")
         text, count = re.subn(
             r'(?m)^(\s*version=")[^"]+(".*)$',
-            r'\g<1>21.99.0+therand.3\2',
+            r'\g<1>21.99.0+therand.4\2',
             text,
             count=1,
         )

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <therand-recorder>
   <enabled>true</enabled>
-  <backend_url>http://10.13.13.1:8787</backend_url>
+  <backend_url>http://10.13.14.1:8787</backend_url>
   <token>REPLACE_WITH_PRIVATE_BACKEND_TOKEN</token>
   <recordings_root>/var/media/nvme0n1p7-nvme-Samsung_SSD_990/TV-Recordings</recordings_root>
   <margin_before_seconds>120</margin_before_seconds>

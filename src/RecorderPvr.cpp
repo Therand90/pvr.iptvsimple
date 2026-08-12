@@ -29,6 +29,80 @@ bool IsVisibleTimerState(const std::string& state)
   return state == "scheduled" || state == "recording" || state == "error";
 }
 
+bool IsHttpStreamUrl(const std::string& value)
+{
+  return value.rfind("http://", 0) == 0 || value.rfind("https://", 0) == 0;
+}
+
+int HexValue(char value)
+{
+  if (value >= '0' && value <= '9')
+    return value - '0';
+  if (value >= 'a' && value <= 'f')
+    return value - 'a' + 10;
+  if (value >= 'A' && value <= 'F')
+    return value - 'A' + 10;
+  return -1;
+}
+
+std::string UrlDecode(const std::string& value)
+{
+  std::string decoded;
+  decoded.reserve(value.size());
+  for (size_t i = 0; i < value.size(); ++i)
+  {
+    if (value[i] == '%' && i + 2 < value.size())
+    {
+      const int high = HexValue(value[i + 1]);
+      const int low = HexValue(value[i + 2]);
+      if (high >= 0 && low >= 0)
+      {
+        decoded.push_back(static_cast<char>((high << 4) | low));
+        i += 2;
+        continue;
+      }
+    }
+    decoded.push_back(value[i] == '+' ? ' ' : value[i]);
+  }
+  return decoded;
+}
+
+std::string QueryParameter(const std::string& url, const std::string& name)
+{
+  const size_t queryStart = url.find('?');
+  if (queryStart == std::string::npos)
+    return {};
+
+  size_t cursor = queryStart + 1;
+  while (cursor <= url.size())
+  {
+    const size_t next = url.find('&', cursor);
+    const size_t end = next == std::string::npos ? url.size() : next;
+    const size_t equals = url.find('=', cursor);
+    if (equals != std::string::npos && equals < end &&
+        url.compare(cursor, equals - cursor, name) == 0)
+      return UrlDecode(url.substr(equals + 1, end - equals - 1));
+
+    if (next == std::string::npos)
+      break;
+    cursor = next + 1;
+  }
+  return {};
+}
+
+std::string RecorderStreamUrl(const Channel& channel)
+{
+  const std::string playbackUrl = channel.GetStreamURL();
+  if (IsHttpStreamUrl(playbackUrl))
+    return playbackUrl;
+
+  // Playlist Manager embeds the recorder-safe source in our TherandTV wrapper.
+  // TherandTV itself ignores this query parameter and keeps managing playback
+  // failover/routing normally; only the recorder consumes it.
+  const std::string recordingUrl = QueryParameter(playbackUrl, "recording_url");
+  return IsHttpStreamUrl(recordingUrl) ? recordingUrl : std::string{};
+}
+
 PVR_TIMER_STATE ToKodiTimerState(const std::string& state)
 {
   if (state == "scheduled")
@@ -114,8 +188,7 @@ PVR_ERROR IptvSimple::GetTimerTypes(std::vector<kodi::addon::PVRTimerType>& type
   epgType.SetAttributes(PVR_TIMER_TYPE_SUPPORTS_CHANNELS |
                         PVR_TIMER_TYPE_SUPPORTS_START_TIME |
                         PVR_TIMER_TYPE_SUPPORTS_END_TIME |
-                        PVR_TIMER_TYPE_SUPPORTS_START_END_MARGIN |
-                        PVR_TIMER_TYPE_REQUIRES_EPG_TAG_ON_CREATE);
+                        PVR_TIMER_TYPE_SUPPORTS_START_END_MARGIN);
   epgType.SetDescription("Enregistrer ce programme");
   types.emplace_back(epgType);
 
@@ -253,11 +326,20 @@ PVR_ERROR IptvSimple::AddTimer(const kodi::addon::PVRTimer& timer)
   if (timerType != THERAND_TIMER_TYPE_EPG && timerType != THERAND_TIMER_TYPE_MANUAL)
     timerType = epgUid == 0 ? THERAND_TIMER_TYPE_MANUAL : THERAND_TIMER_TYPE_EPG;
 
+  const std::string recorderUrl = RecorderStreamUrl(channel);
+  if (recorderUrl.empty())
+  {
+    Logger::Log(LEVEL_ERROR,
+                "%s - Channel '%s' has no HTTP(S) source usable by the Therand recorder",
+                __FUNCTION__, channel.GetChannelName().c_str());
+    return PVR_ERROR_REJECTED;
+  }
+
   RecorderTimerRequest request;
   request.channelUid = channel.GetUniqueId();
   request.channelName = channel.GetChannelName();
   request.tvgId = channel.GetTvgId();
-  request.streamUrl = channel.GetStreamURL();
+  request.streamUrl = recorderUrl;
   request.title = title;
   request.startAt = startAt;
   request.stopAt = stopAt;
@@ -322,11 +404,20 @@ PVR_ERROR IptvSimple::UpdateTimer(const kodi::addon::PVRTimer& timer)
   if (startAt <= 0 || stopAt <= startAt)
     return PVR_ERROR_INVALID_PARAMETERS;
 
+  const std::string recorderUrl = RecorderStreamUrl(channel);
+  if (recorderUrl.empty())
+  {
+    Logger::Log(LEVEL_ERROR,
+                "%s - Channel '%s' has no HTTP(S) source usable by the Therand recorder",
+                __FUNCTION__, channel.GetChannelName().c_str());
+    return PVR_ERROR_REJECTED;
+  }
+
   RecorderTimerRequest request;
   request.channelUid = channel.GetUniqueId();
   request.channelName = channel.GetChannelName();
   request.tvgId = channel.GetTvgId();
-  request.streamUrl = channel.GetStreamURL();
+  request.streamUrl = recorderUrl;
   request.title = timer.GetTitle().empty() ? channel.GetChannelName() : timer.GetTitle();
   request.startAt = startAt;
   request.stopAt = stopAt;

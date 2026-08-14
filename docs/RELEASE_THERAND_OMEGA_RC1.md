@@ -1,8 +1,10 @@
-# IPTV Simple Client (Therand DVR) — Omega RC1
+# IPTV Simple Client (Therand DVR) — Omega RC1 (historique)
 
-Distribution Kodi 21/Omega : `21.99.0+therand.3`.
+> **Document historique.** Cette RC1 (`21.99.0+therand.3`) n'est plus la version déployée. L'état de référence actuel est documenté dans `docs/THERAND.md` et correspond à `21.99.0+therand.5` sur `wg-vps` `10.13.14.x`.
 
-## Fonctions ajoutées
+Distribution Kodi 21/Omega historique : `21.99.0+therand.3`.
+
+## Fonctions ajoutées à cette étape
 
 - remplacement direct de `pvr.iptvsimple` afin de conserver les instances M3U/XMLTV existantes ;
 - bouton d'enregistrement et timers PVR natifs pilotés par `therand-tv-recorder` ;
@@ -16,15 +18,15 @@ Distribution Kodi 21/Omega : `21.99.0+therand.3`.
 - suppression depuis Kodi ;
 - arrêt manuel d'un enregistrement conservant la partie déjà écrite.
 
-## Architecture attendue
+## Architecture de cette RC1
 
-- backend recorder VPS : `http://10.13.13.1:8787`, dans le namespace réseau du conteneur WireGuard ;
-- agent recorder LibreELEC : `http://10.13.13.2:8788`, en réseau Docker host ;
-- proxy Vavoo LibreELEC : `http://127.0.0.1:8899` ;
+Cette RC1 documentait encore l'ancien réseau recorder `10.13.13.x`. Cette architecture a depuis été remplacée par le tunnel privé `wg-vps` `10.13.14.x` :
+
+- backend recorder VPS actuel : `http://10.13.14.1:8787` ;
+- agent recorder LibreELEC actuel : `http://10.13.14.2:8788` ;
+- proxy VAVOO LibreELEC : `http://127.0.0.1:8899` ;
 - stockage : `/var/media/nvme0n1p7-nvme-Samsung_SSD_990/TV-Recordings`.
 
 Le VPS ne stocke aucun fichier vidéo. FFmpeg s'exécute sur LibreELEC en copie directe (`-c copy`).
 
-## Avant installation
-
-Sauvegarder le dossier userdata de l'IPTV Simple actuel et déployer/valider d'abord le backend VPS et l'agent LibreELEC. Le fichier `therand-recorder.xml` contient le token privé du backend et ne doit jamais être versionné.
+Pour l'état réellement déployé et validé, utiliser `docs/THERAND.md`.
